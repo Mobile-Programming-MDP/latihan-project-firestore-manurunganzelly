@@ -1,11 +1,12 @@
-import 'dart:html';
 
 import 'package:flutter/material.dart';
 import 'package:notes/models/note.dart';
+import 'package:notes/provider/theme.dart';
 import 'package:notes/screens/google_maps_screen.dart';
-import 'package:notes/screens/maps_screen.dart';
 import 'package:notes/services/note_service.dart';
 import 'package:notes/widgets/note_dialog.dart';
+import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NoteListScreen extends StatefulWidget {
@@ -20,7 +21,19 @@ class _NoteListScreenState extends State<NoteListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notes'),
+        actions: [
+          Expanded(
+            child: Consumer<ThemeNotifier>(
+              builder: (context, notifier, child) => SwitchListTile.adaptive(
+                title: const Text('Notes'),
+                onChanged: (val) {
+                  notifier.toggleChangeTheme(val);
+                },
+                value: notifier.darkMode!,
+              ),
+            ),
+          ),
+        ],
       ),
       body: const NoteList(),
       floatingActionButton: FloatingActionButton(
@@ -56,9 +69,12 @@ class NoteList extends StatelessWidget {
               child: CircularProgressIndicator(),
             );
           default:
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No notes available'));
+            }
             return ListView(
               padding: const EdgeInsets.only(bottom: 80),
-              children: snapshot.data!.map((document) {
+              children: snapshot.data!.map<Widget>((document) {
                 return Card(
                   child: Column(
                     children: [
@@ -98,13 +114,13 @@ class NoteList extends StatelessWidget {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => GoogleMapsScreen(
+                                          builder: (context) =>
+                                              GoogleMapsScreen(
                                             document.lat,
                                             document.lng,
                                           ),
                                         ),
                                       );
-                                      //openMap(document.lat, document.lng);
                                     },
                                     child: const Padding(
                                       padding:
@@ -128,6 +144,17 @@ class NoteList extends StatelessWidget {
                                 child: Icon(Icons.delete),
                               ),
                             ),
+                            InkWell(
+                              onTap: () {
+                                Share.share(
+                                  'Title: \n ${document.title}\n\n Description: \n${document.description}',
+                                );
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 10),
+                                child: Icon(Icons.share),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -142,15 +169,13 @@ class NoteList extends StatelessWidget {
   }
 
   Future<void> openMap(String? lat, String? lng) async {
-    Uri uri =
-        Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat, $lng");
+    Uri uri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
     if (!await launchUrl(uri)) {
       throw Exception('Could not launch $uri');
     }
   }
 
   showAlertDialog(BuildContext context, Note document) {
-    // set up the buttons
     Widget cancelButton = ElevatedButton(
       child: const Text("No"),
       onPressed: () {
@@ -166,7 +191,6 @@ class NoteList extends StatelessWidget {
       },
     );
 
-    // set up the AlertDialog
     AlertDialog alert = AlertDialog(
       title: const Text("Delete Note"),
       content: const Text("Are you sure to delete Note?"),
@@ -176,7 +200,6 @@ class NoteList extends StatelessWidget {
       ],
     );
 
-    // show the dialog
     showDialog(
       context: context,
       builder: (BuildContext context) {
